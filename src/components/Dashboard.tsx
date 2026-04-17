@@ -46,7 +46,9 @@ export function Dashboard({ activeSection = 'dashboard' }: DashboardProps) {
   const totalValue = MOCK_SHIPMENTS.reduce((sum, s) => sum + s.value, 0);
   const totalVolume = MOCK_SHIPMENTS.reduce((sum, s) => sum + s.volume, 0);
 
-  const selectedRecommendations = selectedAlertId ? analysis?.recommendations[selectedAlertId] : [];
+  const selectedRecommendations = (selectedAlertId && analysis?.recommendations) 
+    ? analysis.recommendations[selectedAlertId] 
+    : [];
 
   const isRisksMode = activeSection === 'risks';
   const isForecastMode = activeSection === 'forecast';
@@ -199,7 +201,7 @@ export function Dashboard({ activeSection = 'dashboard' }: DashboardProps) {
 
             {/* In Forecast Mode, maybe add a timeline or simulation details */}
             {isForecastMode && (
-              <div className="p-4 rounded border border-border bg- surface/30 border-dashed">
+              <div className="p-4 rounded border border-border bg-surface/30 border-dashed">
                  <h4 className="text-[9px] font-bold text-text-dim uppercase tracking-widest mb-2 font-mono italic">Propagation Simulation Log</h4>
                  <div className="space-y-1 font-mono text-[9px] text-text-dim opacity-60">
                     <p>[09:22:15] Initiating 48-hour network impact scan...</p>

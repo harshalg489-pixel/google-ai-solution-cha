@@ -1,7 +1,18 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AnalysisResult } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+let aiClient: GoogleGenAI | null = null;
+
+function getAiClient() {
+  if (!aiClient) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
+      throw new Error("GEMINI_API_KEY is not configured in environment secrets.");
+    }
+    aiClient = new GoogleGenAI({ apiKey });
+  }
+  return aiClient;
+}
 
 const ANALYSIS_SCHEMA = {
   type: Type.OBJECT,
@@ -12,9 +23,9 @@ const ANALYSIS_SCHEMA = {
         type: Type.OBJECT,
         properties: {
           id: { type: Type.STRING },
-          signalType: { type: Type.STRING, enum: ['weather', 'congestion', 'carrier', 'geopolitical', 'anomaly'] },
+          signalType: { type: Type.STRING },
           nodes: { type: Type.STRING },
-          severity: { type: Type.STRING, enum: ['Critical', 'High', 'Medium', 'Low'] },
+          severity: { type: Type.STRING },
           confidence: { type: Type.NUMBER },
           impact: {
             type: Type.OBJECT,
@@ -50,8 +61,33 @@ const ANALYSIS_SCHEMA = {
       }
     },
     recommendations: {
-      type: Type.OBJECT,
-      description: "Keyed by alert id"
+      type: Type.ARRAY,
+      description: "Array of recommendation sets, each containing an alertId and its associated options",
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          alertId: { type: Type.STRING },
+          options: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                id: { type: Type.STRING },
+                name: { type: Type.STRING },
+                route: { type: Type.STRING },
+                timeDelta: { type: Type.STRING },
+                costDelta: { type: Type.STRING },
+                reliabilityScore: { type: Type.NUMBER },
+                riskReduction: { type: Type.NUMBER },
+                decision: { type: Type.STRING },
+                reasoning: { type: Type.STRING }
+              },
+              required: ['id', 'name', 'route', 'timeDelta', 'costDelta', 'reliabilityScore', 'riskReduction', 'decision', 'reasoning']
+            }
+          }
+        },
+        required: ['alertId', 'options']
+      }
     },
     summary: { type: Type.STRING }
   },
@@ -59,6 +95,8 @@ const ANALYSIS_SCHEMA = {
 };
 
 export async function analyzeLogistics(shipmentData: any, snapshot: any): Promise<AnalysisResult> {
+  const ai = getAiClient();
+  
   const prompt = `
     Analyze the following real-time logistics snapshot as LogistiQ, the elite AI logistics intelligence agent.
     
@@ -80,6 +118,7 @@ export async function analyzeLogistics(shipmentData: any, snapshot: any): Promis
     Each recommendation MUST include: time delta, cost delta, reliability score, risk reduction, and decision type (AUTO-EXECUTE or HUMAN APPROVAL REQUIRED).
     
     Format the response as JSON according to the schema provided.
+    Ensure recommendations are returned as an array of objects with alertId and options.
   `;
 
   try {
@@ -96,7 +135,20 @@ export async function analyzeLogistics(shipmentData: any, snapshot: any): Promis
       throw new Error("Empty response from Gemini");
     }
 
-    return JSON.parse(response.text) as AnalysisResult;
+    const rawData = JSON.parse(response.text);
+    
+    // Map the array-based recommendations back to the Record format expected by the UI
+    const recommendations: Record<string, any[]> = {};
+    if (Array.isArray(rawData.recommendations)) {
+      rawData.recommendations.forEach((item: any) => {
+        recommendations[item.alertId] = item.options;
+      });
+    }
+
+    return {
+      ...rawData,
+      recommendations
+    } as AnalysisResult;
   } catch (error) {
     console.error("Gemini Analysis Error:", error);
     throw error;

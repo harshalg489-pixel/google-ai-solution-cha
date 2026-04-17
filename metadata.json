@@ -1,6 +1,6 @@
 {
-  "name": "LogistiQ",
-  "description": "Elite AI logistics intelligence agent for proactive supply chain failure prevention, risk detection, impact prediction, and automated rerouting response.",
+  "name": "LogistiQ Tactical Intelligence",
+  "description": "LogistiQ is an elite AI logistics intelligence agent providing sub-second disruption detection, probabilistic impact forecasting, and autonomous rerouting strategies using the Gemini 3 Flash engine.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": ["Geospatial Visualization", "AI Intelligence Analysis", "Real-time Disruption Monitoring"]
 }
