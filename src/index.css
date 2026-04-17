@@ -1,0 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "Courier New", Courier, monospace;
+
+  --color-bg: #0A0B0D;
+  --color-surface: #16181D;
+  --color-border: #2D3139;
+  --color-text-main: #E2E4E9;
+  --color-text-dim: #9499A1;
+  --color-accent-crit: #FF4D4D;
+  --color-accent-high: #F9A03F;
+  --color-accent-med: #F4D35E;
+  --color-accent-safe: #36D399;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text-main);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: var(--color-bg);
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 2px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-dim);
+  }
+}
+
+
