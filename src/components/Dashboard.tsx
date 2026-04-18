@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Activity, AlertOctagon, Package, DollarSign, Zap, RefreshCw, AlertCircle } from 'lucide-react';
+import { Activity, AlertOctagon, Package, DollarSign, Zap, RefreshCw, AlertCircle, AlertTriangle } from 'lucide-react';
 import { StatCard } from './StatCard';
 import { RiskAlertCard } from './RiskAlertCard';
 import { RecommendationCard } from './RecommendationCard';
 import { ForecastPanel } from './ForecastPanel';
-import { AnalysisResult, RiskAlert } from '../types';
-import { MOCK_SHIPMENTS, RAW_SNAPSHOT } from '../constants';
-import { analyzeLogistics } from '../services/geminiService';
+import { AnalysisResult, RiskAlert, Shipment } from '../types';
+import { RAW_SNAPSHOT } from '../constants';
+import { analyzeLogistics } from '../services/logisticsService';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -17,23 +17,29 @@ function cn(...inputs: ClassValue[]) {
 
 interface DashboardProps {
   activeSection: string;
+  shipments: Shipment[];
 }
 
-export function Dashboard({ activeSection = 'dashboard' }: DashboardProps) {
+export function Dashboard({ activeSection = 'dashboard', shipments }: DashboardProps) {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
 
-  const performAnalysis = async () => {
+  const performAnalysis = async (force = false) => {
+    if (loading || (analysis && !force)) return;
+    
     setLoading(true);
+    setError(null);
     try {
-      const result = await analyzeLogistics(MOCK_SHIPMENTS, RAW_SNAPSHOT);
+      const result = await analyzeLogistics(shipments);
       setAnalysis(result);
       if (result.alerts.length > 0) {
         setSelectedAlertId(result.alerts[0].id);
       }
-    } catch (error) {
-      console.error(error);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Intelligence synchronization failed. Verify API configuration.');
     } finally {
       setLoading(false);
     }
@@ -41,10 +47,10 @@ export function Dashboard({ activeSection = 'dashboard' }: DashboardProps) {
 
   useEffect(() => {
     performAnalysis();
-  }, []);
+  }, [shipments.length, activeSection]); // Re-run if section changes or fleet size changes
 
-  const totalValue = MOCK_SHIPMENTS.reduce((sum, s) => sum + s.value, 0);
-  const totalVolume = MOCK_SHIPMENTS.reduce((sum, s) => sum + s.volume, 0);
+  const totalValue = shipments.reduce((sum, s) => sum + s.value, 0);
+  const totalVolume = shipments.reduce((sum, s) => sum + s.volume, 0);
 
   const selectedRecommendations = (selectedAlertId && analysis?.recommendations) 
     ? analysis.recommendations[selectedAlertId] 
@@ -73,7 +79,7 @@ export function Dashboard({ activeSection = 'dashboard' }: DashboardProps) {
           </>
         ) : (
           <>
-            <StatCard title="Active Units" value={MOCK_SHIPMENTS.length} trend="+12" icon={<Package className="w-4 h-4" />} />
+            <StatCard title="Active Units" value={shipments.length} trend="+12" icon={<Package className="w-4 h-4" />} />
             <StatCard title="Total Volume" value={`${totalVolume} TEU`} trend="+4" icon={<Activity className="w-4 h-4" />} delay={0.05} />
             <StatCard title="Network Value" value={`$${(totalValue / 1000000).toFixed(2)}M`} icon={<DollarSign className="w-4 h-4" />} delay={0.1} />
             <StatCard 
@@ -99,7 +105,7 @@ export function Dashboard({ activeSection = 'dashboard' }: DashboardProps) {
               {isRisksMode ? 'Global Signal Intelligence Terminal' : 'Signal Feeds'}
             </h3>
             <button 
-              onClick={performAnalysis}
+              onClick={() => performAnalysis(true)}
               className="p-1 rounded bg-surface border border-border text-text-dim hover:text-accent-high transition-all disabled:opacity-50"
               disabled={loading}
             >
@@ -115,15 +121,29 @@ export function Dashboard({ activeSection = 'dashboard' }: DashboardProps) {
               Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="h-32 rounded bg-surface border border-border animate-pulse" />
               ))
-            ) : analysis?.alerts.map((alert, i) => (
-              <RiskAlertCard 
-                key={alert.id} 
-                alert={alert} 
-                delay={i * 0.05} 
-                isSelected={selectedAlertId === alert.id}
-                onClick={() => setSelectedAlertId(alert.id)}
-              />
-            ))}
+            ) : error ? (
+              <div className="p-4 rounded border border-accent-crit/20 bg-accent-crit/5 text-accent-crit text-[11px] font-mono">
+                <p className="font-bold flex items-center gap-2 mb-1 uppercase tracking-widest"><AlertTriangle className="w-3 h-3" /> Satellite Link Interrupted</p>
+                <p className="whitespace-pre-line opacity-80">{error}</p>
+                <div className="mt-3 flex gap-2">
+                  <button onClick={() => performAnalysis(true)} className="px-3 py-1 rounded bg-accent-crit/20 border border-accent-crit/30 hover:bg-accent-crit/30 transition-all uppercase text-[9px] font-bold">Reconnect Feeds</button>
+                </div>
+              </div>
+            ) : analysis?.alerts && analysis.alerts.length > 0 ? (
+              analysis.alerts.map((alert, i) => (
+                <RiskAlertCard 
+                  key={alert.id} 
+                  alert={alert} 
+                  delay={i * 0.05} 
+                  isSelected={selectedAlertId === alert.id}
+                  onClick={() => setSelectedAlertId(alert.id)}
+                />
+              ))
+            ) : (
+              <div className="h-40 flex flex-col items-center justify-center border border-dashed border-border rounded text-text-dim/30">
+                <p className="text-[10px] font-mono uppercase">System Nominal // No Disruptions Detected</p>
+              </div>
+            )}
           </div>
         </div>
 
